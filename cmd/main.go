@@ -35,29 +35,7 @@ func main() {
 			return
 		}
 		text := flag.Args()[2]
-		var data []byte
-		if textMode {
-			data = []byte(text)
-		} else {
-			bs, err := ioutil.ReadFile(text)
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-			enc := base64.StdEncoding.EncodeToString(bs)
-			data = []byte(enc)
-		}
-		img, err := leaf.Encode(cover, data)
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		f, err := os.Create("encode.png")
-		if err != nil {
-			fmt.Println(err)
-			return
-		}
-		if err := png.Encode(f, img); err != nil {
+		if err := encode(cover, text); err != nil {
 			fmt.Println(err)
 			return
 		}
@@ -66,24 +44,26 @@ func main() {
 		data := leaf.Decode(cover)
 		if textMode {
 			fmt.Println(string((data)))
-		} else {
-			imgDat, err := base64.StdEncoding.DecodeString(string(data))
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			f, err := os.Create("decode.png")
-			if err != nil {
-				fmt.Println(err)
-				return
-			}
-
-			if _, err := f.Write(imgDat); err != nil {
-				fmt.Println(err)
-				return
-			}
+			return
 		}
+		imgDat, err := base64.StdEncoding.DecodeString(string(data))
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		f, err := os.Create("decode.png")
+		if err != nil {
+			fmt.Println(err)
+			return
+		}
+
+		if _, err := f.Write(imgDat); err != nil {
+			fmt.Println(err)
+			return
+		}
+		fmt.Println("Created decode.png")
+
 	default:
 		printHelp("Error in the parameter specification")
 		return
@@ -100,11 +80,41 @@ func printHelp(msg string) {
 	flag.PrintDefaults()
 }
 
+func encode(cover image.Image, text string) error {
+	var data []byte
+	if textMode {
+		data = []byte(text)
+	} else {
+		bs, err := ioutil.ReadFile(text)
+		if err != nil {
+			return err
+		}
+		enc := base64.StdEncoding.EncodeToString(bs)
+		data = []byte(enc)
+	}
+
+	img, err := leaf.Encode(cover, data)
+	if err != nil {
+		return err
+	}
+
+	f, err := os.Create("encode.png")
+	if err != nil {
+		return err
+	}
+
+	if err := png.Encode(f, img); err != nil {
+		return err
+	}
+	return nil
+}
+
 func openImage(path string) (image.Image, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer f.Close()
+
 	return png.Decode(f)
 }
