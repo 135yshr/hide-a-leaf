@@ -8,8 +8,9 @@ import (
 	"io/ioutil"
 	"os"
 
-	"image/color"
 	"image/png"
+
+	leaf "github.com/135yshr/hide-a-leaf"
 )
 
 var (
@@ -46,7 +47,7 @@ func main() {
 			enc := base64.StdEncoding.EncodeToString(bs)
 			data = []byte(enc)
 		}
-		img, err := encode(cover, data)
+		img, err := leaf.Encode(cover, data)
 		if err != nil {
 			fmt.Println(err)
 			return
@@ -62,7 +63,7 @@ func main() {
 		}
 
 	case "decode":
-		data := decode(cover)
+		data := leaf.Decode(cover)
 		if textMode {
 			fmt.Println(string((data)))
 		} else {
@@ -106,62 +107,4 @@ func openImage(path string) (image.Image, error) {
 	}
 	defer f.Close()
 	return png.Decode(f)
-}
-
-func encode(cover image.Image, text []byte) (image.Image, error) {
-	rect := cover.Bounds()
-	newImg := image.NewNRGBA(image.Rectangle{rect.Min, rect.Max})
-	index := 0
-	for y := rect.Min.Y; y < rect.Max.Y; y++ {
-		for x := rect.Min.X; x < rect.Max.X; x++ {
-			c1 := color.NRGBAModel.Convert(cover.At(x, y))
-			baseColor, ok := c1.(color.NRGBA)
-			if !ok {
-				continue
-			}
-			newImg.SetNRGBA(x, y, hiding(baseColor, text, index))
-			index++
-		}
-	}
-	return newImg, nil
-}
-
-func hiding(c color.NRGBA, text []byte, n int) color.NRGBA {
-	var r, g, b, a uint8
-	if len(text) <= n || text[n] == 0 {
-		r = c.R & 0xfc
-		g = c.G & 0xfc
-		b = c.B & 0xfc
-		a = c.A & 0xfc
-	} else {
-		r = c.R&0xfc + text[n]&3
-		g = c.G&0xfc + (text[n]>>2)&0x3
-		b = c.B&0xfc + (text[n]>>4)&0x3
-		a = c.A&0xfc + (text[n]>>6)&0x3
-	}
-
-	return color.NRGBA{r, g, b, a}
-}
-
-func decode(cover image.Image) []byte {
-	bs := []byte{}
-	rect := cover.Bounds()
-	for y := rect.Min.Y; y < rect.Max.Y; y++ {
-		for x := rect.Min.X; x < rect.Max.X; x++ {
-			i := color.NRGBAModel.Convert(cover.At(x, y))
-			c, ok := i.(color.NRGBA)
-			if !ok {
-				continue
-			}
-			r := c.R & 0x3
-			g := c.G & 0x3 << 2
-			b := c.B & 0x3 << 4
-			a := c.A & 0x3 << 6
-			if (r + g + b + a) == 0 {
-				continue
-			}
-			bs = append(bs, byte(r+g+b+a))
-		}
-	}
-	return bs
 }
